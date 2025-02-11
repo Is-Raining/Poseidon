@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package youtu.api.poseidon.types;
+
+option go_package = "git.woa.com/yt-industry-ai/poseidon/api/protobuf-spec/types";
+
+// 错误信息
+message Error {
+  string code = 1 [json_name = "Code"];    // 错误码
+  string msg = 2 [json_name = "Message"];  // 错误详细信息
+  string short_msg = 3 [json_name = "ShortMsg"];  //切割后的错误码 
+}
+
+// 过滤条件
+message Filter {
+  string name = 1 [json_name = "Name"];               // 名称
+  repeated string values = 2 [json_name = "Values"];  // 允许的值列表
+}
+
+// 容器状态
+message DockerContainerState {
+  // status one of "created", "running", "paused", "restarting", "removing", "exited", or "dead"
+  string status = 1 [json_name = "Status"];
+  bool running = 2 [json_name = "Running"];
+  bool paused = 3 [json_name = "Paused"];
+  bool restarting = 4 [json_name = "Restarting"];
+  bool oom_killed = 5 [json_name = "OOMKilled"];
+  bool dead = 6 [json_name = "Dead"];
+  int32 exit_code = 7 [json_name = "ExitCode"];
+  string error = 8 [json_name = "Error"];
+  string started_at = 9 [json_name = "StartedAt"];
+  string finished_at = 10 [json_name = "FinishedAt"];
+  // health_status one of "starting", "healthy" or "unhealthy"
+  string health_status = 11 [json_name = "HealthStatus"];
+}

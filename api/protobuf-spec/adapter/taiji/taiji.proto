@@ -1,0 +1,313 @@
+syntax = "proto3";
+
+package youtu.api.poseidon.adapter.taiji;
+
+option go_package = "git.woa.com/yt-industry-ai/poseidon/api/protobuf-spec/adapter/taiji";
+
+// 太极 API 文档：https://docs.qq.com/doc/DVGNjSkdEZlVtRUlS
+
+message TaijiTaskInfo {
+  // 启动任务参数
+  string api_token = 1 [json_name = "APIToken"];                       // 太极平台用户 token
+  string task_name = 2 [json_name = "TaskName"];                       // 任务名称，方便用户辨识的名称，最长不超过 128 字符
+  string task_id = 3 [json_name = "TaskId"];                           // 任务 ID
+  string app_group_name = 4 [json_name = "AppGroupName"];              // 应用组名称
+  string image_name = 5 [json_name = "ImageName"];                     // 镜像名称
+  int32 host_num = 6 [json_name = "HostNum"];                          // GPU 机器数（用于多机多卡）
+  int32 host_gpu_num = 7 [json_name = "HostGPUNum"];                   // 每台 GPU 机器几张卡（用于多机多卡）
+  string gpu_type = 8 [json_name = "GPUType"];                         // 卡型号，可选值为 P40/M40/V100
+  string cuda_version = 9 [json_name = "CUDAVersion"];                 // CUDA 版本，可选值为 10.1/10.2/11.0
+  bool is_elasticity = 10 [json_name = "IsElasticity"];                // 是否使用弹性资源
+  // string algo_config_path = 11 [json_name = "AlgoConfigPath"];         // 算法配置路径
+  // string entry_code_dir = 12 [json_name = "EntryCodeDir"];             // 入口代码目录
+  // string entry_script = 13 [json_name = "EntryScript"];                // 入口启动脚本，必须为 shell，相对路径为 entry_code_dir
+  map<string, string> env_vars_dict = 14 [json_name = "EnvVarsDict"];  // 环境变量
+  string start_cmd = 15 [json_name = "StartCmd"];  // 启动命令
+  bool enable_mpi = 16 [json_name = "EnableMpi"];  // 是否启用 MPI
+  bool enable_debug = 17 [json_name = "EnableDebug"];  // 是否启用 debug 模式，若启用，任务失败后依然保留容器
+  bool enable_rdma = 18 [json_name = "EnableRDMA"];  // 是否使用rdma，默认是false
+  string alert_user = 19 [json_name = "AlertUser"];  // 告警人，逗号分隔企业微信名称
+
+  // 任务状态信息
+  bool is_success = 21 [json_name = "IsSuccess"];      // 任务是否成功结束
+  string instance_id = 22 [json_name = "InstanceId"];  // 任务实例 ID
+  string msg = 23 [json_name = "Msg"];                 // 运行信息
+  string state = 24 [json_name = "State"];             // 当前状态，取值如下:
+  // READY 就绪
+  // TRAINING_RESOURCE_QUERYING 申请训练资源
+  // TRAINING_TASK_SUBMITTING 训练任务启动
+  // TRAINING_RUNNING 训练任务运行中
+  // TRAINING_RESOURCE_WAITING 进入资源等待队列
+  // RESOURCE_WAIT_TRANSITION 移出资源等待队列
+  // TRAINING_DEBUG 可调试状态
+  // START_FAILED 启动失败
+  // RUNNING_FAILED 运行失败
+  // RUNNING_SUCCESS 训练完成
+  // JOB_DELETE 资源回收中
+  // TRAINING_INIT 训练初始化中
+  // PENDING 等待中
+  // END 结束
+  string create_time = 26 [json_name = "CreateTime"];
+  string end_time = 27 [json_name = "EndTime"];
+
+  string dataset_id = 28 [json_name = "DatasetId"];
+  string code_pkg_id = 29 [json_name = "CodePkgId"];
+}
+
+// 创建任务
+message CreateTaijiTaskRequest {
+  string id = 1 [json_name = "id"];
+  string jsonrpc = 2 [json_name = "jsonrpc"];  // 运管传过来的,固定为 2.0，协议版本号
+  string method = 3 [json_name = "method"];    // 请求的操作方法，对于该接口固定为 TASK_CREATE
+  CreateTaijiTaskRequestParam params = 4 [json_name = "params"];
+}
+
+message CreateTaijiTaskRequestParam {
+  string req_module_id = 1 [json_name = "req_module_id"];  // 固定为 2
+  string event = 2 [json_name = "event"];                  // 请求事件，创建任务接口该字段固定为 TASK_CREATE
+  CreateTaijiTaskRequestParamTask task = 3 [json_name = "task"];
+}
+
+message CreateTaijiTaskRequestParamTask {
+  string project_id = 1 [json_name = "project_id"];  // 工程 ID, 当传空时，默认为用户创建 "<rtx>的API工程"
+  string task_type = 2 [json_name = "task_type"];    // 任务类型，对于 TI 工具，固定为 general_gpu_type
+  CreateTaijiTaskRequestParamTaskCommon common = 3 [json_name = "common"];
+  CreateTaijiTaskRequestParamTaskConfig task_config = 4 [json_name = "task_config"];
+  // string dataset_source = 5 [json_name = "dataset_source"];
+  // CreateTaijiTaskRequestParamTaskPathInfo path_info = 6 [json_name = "path_info"];
+}
+
+message CreateTaijiTaskRequestParamTaskCommon {
+  string readable_name = 1 [json_name = "readable_name"];  // 任务名称，方便用户辨识的名称，最长不超过 128 字符
+  string template_flag = 2 [json_name = "template_flag"];  // 任务模板标识，对于 TI 工具，固定为 kubeflow_job_learning
+  string task_flag = 3 [json_name = "task_flag"];          // 任务 ID
+  string dataset_id = 4 [json_name = "dataset_id"];        // 数据集 ID
+  string model_id = 5 [json_name = "model_id"];            // 模型 ID（其实是代码包 ID）
+  string business_flag = 6 [json_name = "business_flag"];  // 应用组名称
+  string running_type = 7 [json_name = "running_type"];    // 对于 TI 工具，固定为 manual
+  CreateTaijiTaskRequestParamTaskPermission permission = 8 [json_name = "permission"];
+}
+
+message CreateTaijiTaskRequestParamTaskPermission {
+  string alert_group = 1 [json_name = "alert_group"];  // 告警组，逗号分隔企业微信名称
+}
+
+message CreateTaijiTaskRequestParamTaskConfig {
+  string job_type = 1 [json_name = "job_type"];                         // 对于 TI 工具，固定为 mpijob
+  map<string, string> env_vars_dict = 2 [json_name = "env_vars_dict"];  // 环境变量
+  CreateTaijiTaskRequestParamTaskConfigJobConfig job_config = 3 [json_name = "job_config"];
+  CreateTaijiTaskRequestParamTaskConfigResource designated_resource = 4 [json_name = "designated_resource"];
+}
+
+message CreateTaijiTaskRequestParamTaskConfigJobConfig {
+  string start_cmd = 1 [json_name = "start_cmd"];  // 启动命令
+  bool exec_start_in_all_mpi_pods = 2 [json_name = "exec_start_in_all_mpi_pods"];  // 是否所有的pod都执行启动命令
+}
+
+message CreateTaijiTaskRequestParamTaskConfigResource {
+  int32 host_num = 1 [json_name = "host_num"];                       // GPU 机器数（用于多机多卡）
+  int32 host_gpu_num = 2 [json_name = "host_gpu_num"];               // 每台 GPU 机器几张卡（用于多机多卡）
+  string image_full_name = 3 [json_name = "image_full_name"];        // 算法镜像
+  string GPUName = 4 [json_name = "GPUName"];                        // 卡型号，可选值为 P40/M40/V100
+  string cuda_version = 5 [json_name = "cuda_version"];              // CUDA 版本，可选值为 10.1/10.2/11.0
+  bool is_elasticity = 6 [json_name = "is_elasticity"];              // 是否使用弹性资源
+  bool is_resource_waiting = 7 [json_name = "is_resource_waiting"];  // 如果没有足够资源，是否进入资源排队队列等待
+  bool is_enable_ssh_without_password = 8 [json_name = "is_enable_ssh_without_password"];  // 是否需要开启ssh免密登录
+  bool keep_running_after_trainer_finish = 9 [json_name = "keep_running_after_trainer_finish"]; // 当用户训练程序结束后，是否保留现场
+  bool is_enable_rdma = 10 [json_name = "is_enable_rdma"];  // 是否使用rdma，默认是false
+}
+
+message CreateTaijiTaskRequestParamTaskPathInfo {
+  
+}
+
+message CreateTaijiTaskResponse {
+  string id = 1 [json_name = "id"];
+  string jsonrpc = 2 [json_name = "jsonrpc"];
+  CreateTaijiTaskResponseResult result = 3 [json_name = "result"];
+}
+
+message CreateTaijiTaskResponseResult {
+  int32 code = 1 [json_name = "code"];         // 状态码，正常返回为 0，出现异常则为负数
+  string message = 2 [json_name = "message"];
+  CreateTaijiTaskResponseData data = 3 [json_name = "data"];
+}
+
+message CreateTaijiTaskResponseData {
+  string task_flag = 1 [json_name = "task_flag"];  // 返回创建成功的 task_id
+}
+
+// 启动任务
+message StartTaijiTaskRequest {
+  string id = 1 [json_name = "id"];
+  string jsonrpc = 2 [json_name = "jsonrpc"];  // 运管传过来的,固定为 2.0，协议版本号
+  string method = 3 [json_name = "method"];    // 请求的操作方法，对于该接口固定为 TASK_ENABLE
+  StartTaijiTaskRequestParam params = 4 [json_name = "params"];
+}
+
+message StartTaijiTaskRequestParam {
+  string req_module_id = 1 [json_name = "req_module_id"];  // 固定为 YG_00000000000000000000000000000000_00
+  string event = 2 [json_name = "event"];                  // 请求事件，创建任务接口该字段固定为 TASK_ENABLE
+  string task_flag = 3 [json_name = "task_flag"];          // 任务对应的 task_id
+  bool one_off = 4 [json_name = "one_off"];                // 固定为 true
+}
+
+message StartTaijiTaskResponse {
+  string id = 1 [json_name = "id"];
+  string jsonrpc = 2 [json_name = "jsonrpc"];
+  StartTaijiTaskResponseResult result = 3 [json_name = "result"];
+}
+
+message StartTaijiTaskResponseResult {
+  int32 code = 1 [json_name = "code"];  // 状态码，正常返回为 0，出现异常则为负数
+  string message = 2 [json_name = "message"];
+  StartTaijiTaskResponseData data = 3 [json_name = "data"];
+}
+
+message StartTaijiTaskResponseData {
+  string instance_id = 1 [json_name = "instance_id"];  // 返回创建成功的 instance_id，通过此可以访问到该任务对应的页面
+}
+
+// 停止任务
+message StopTaijiTaskRequest {
+  string id = 1 [json_name = "id"];
+  string jsonrpc = 2 [json_name = "jsonrpc"];  // 运管传过来的,固定为 2.0，协议版本号
+  string method = 3 [json_name = "method"];    // 请求的操作方法，对于该接口固定为 INSTANCE_KILL
+  StopTaijiTaskRequestParam params = 4 [json_name = "params"];
+}
+
+message StopTaijiTaskRequestParam {
+  string task_flag = 1 [json_name = "task_flag"];  // 任务对应的 task_id
+}
+
+message StopTaijiTaskResponse {
+  string id = 1 [json_name = "id"];
+  string jsonrpc = 2 [json_name = "jsonrpc"];
+  StopTaijiTaskResponseResult result = 3 [json_name = "result"];
+}
+
+message StopTaijiTaskResponseResult {
+  int32 code = 1 [json_name = "code"];  // 状态码，正常返回为 0，出现异常则为负数
+  string message = 2 [json_name = "message"];
+  StopTaijiTaskResponseData data = 3 [json_name = "data"];
+}
+
+message StopTaijiTaskResponseData {
+  string task_flag = 1 [json_name = "task_flag"];  // 任务对应的 task_id
+}
+
+// 查询任务
+message DescribeTaijiTaskRequest {
+  string id = 1 [json_name = "id"];
+  string jsonrpc = 2 [json_name = "jsonrpc"];  // 运管传过来的,固定为 2.0，协议版本号
+  string method = 3 [json_name = "method"];    // 请求的操作方法，对于该接口固定为 INSTANCE_LIST
+  DescribeTaijiTaskRequestParam params = 4 [json_name = "params"];
+}
+
+message DescribeTaijiTaskRequestParam {
+  string task_flag = 1 [json_name = "task_flag"];  // 任务对应的 task_id
+  bool is_success = 2 [json_name = "is_success"];  // 是否只查看成功的实例，固定为 false
+}
+
+message DescribeTaijiTaskResponse {
+  string id = 1 [json_name = "id"];
+  string jsonrpc = 2 [json_name = "jsonrpc"];
+  DescribeTaijiTaskResponseResult result = 3 [json_name = "result"];
+}
+
+message DescribeTaijiTaskResponseResult {
+  int32 code = 1 [json_name = "code"];  // 状态码，正常返回为 0，出现异常则为负数
+  string message = 2 [json_name = "message"];
+  DescribeTaijiTaskResponseData data = 3 [json_name = "data"];
+}
+
+message DescribeTaijiTaskResponseData {
+  repeated DescribeTaijiTaskResponseInstanceInfo instance_info = 1 [json_name = "instance_info"];  // 每个任务只会有一个示例，取第一个即可
+}
+
+message DescribeTaijiTaskResponseInstanceInfo {
+  bool is_success = 1 [json_name = "is_success"];      // 任务是否运行成功
+  string state = 2 [json_name = "state"];              // 当前状态
+  string msg = 3 [json_name = "msg"];                  // 运行信息
+  int32 time_delay = 4 [json_name = "time_delay"];     // 运行时间
+  string create_time = 5 [json_name = "create_time"];  // 创建时间
+  string instance_id = 6 [json_name = "instance_id"];  // 实例id
+  string time_start = 7 [json_name = "time_start"];    // 实例开始时间
+}
+
+message DescribeTaijiResourceRequestParam {
+  string business_flag = 1 [json_name = "business_flag"];  // 业务标识
+}
+
+message DescribeTaijiResourceRequest {
+  string id = 1 [json_name = "id"];
+  string jsonrpc = 2 [json_name = "jsonrpc"];  // 运管传过来的,固定为 2.0，协议版本号
+  string method = 3 [json_name = "method"];    // 请求的操作方法，对于该接口固定为 TASK_CREATE
+  DescribeTaijiResourceRequestParam params = 4 [json_name = "params"];
+}
+
+message TaijiElasticResourceInfo {
+  int32 low_gpu_capacity = 1 [json_name = "low_gpu_capacity"];  // 弹性额度
+  int32 using_num = 2 [json_name = "using_num"];  // 弹性使用卡数
+}
+
+message TaijiResourceInfo {
+  string gpu_name = 1 [json_name = "GPUName"]; // GPU 卡类型
+  int32 resource_amount = 2 [json_name = "resource_amount"];  // 资源配额
+  int32 total_num = 3 [json_name = "total_num"];  // 在用的卡数
+  int32 applying_num = 4 [json_name = "applying_num"];  // 正在申请的卡数
+  int32 waiting_num = 5 [json_name = "waiting_num"];  // 正在等待资源的卡数
+}
+
+message DescribeTaijiResourceResponseData {
+  TaijiElasticResourceInfo elastic_resource_info = 1 [json_name = "elastic_resource_info"];  // 弹性资源使用情况
+  repeated TaijiResourceInfo resource_info_list = 2 [json_name = "resource_info_list"];  // 普通任务资源使用情况
+}
+
+message DescribeTaijiResourceResponseResult {
+  int32 code = 1 [json_name = "code"];         // 状态码，正常返回为 0，出现异常则为负数
+  string message = 2 [json_name = "message"];
+  DescribeTaijiResourceResponseData data = 3 [json_name = "data"];
+}
+
+message DescribeTaijiResourceResponse {
+  string id = 1 [json_name = "id"];
+  string jsonrpc = 2 [json_name = "jsonrpc"];
+  DescribeTaijiResourceResponseResult result = 3 [json_name = "result"];
+}
+
+// 查询任务实例详情
+message DescribeTaijiTaskDetailRequest {
+  string id = 1 [json_name = "id"];
+  string jsonrpc = 2 [json_name = "jsonrpc"];  // 运管传过来的,固定为 2.0，协议版本号
+  string method = 3 [json_name = "method"];    // 请求的操作方法，对于该接口固定为 INSTANCE_DETAIL
+  DescribeTaijiTaskDetailRequestParam params = 4 [json_name = "params"];
+}
+
+message DescribeTaijiTaskDetailRequestParam {
+  string task_type = 1 [json_name = "task_type"];    // 任务类型，对于 TI 工具，固定为 general_gpu_type
+  string instance_id = 2 [json_name = "instance_id"];  // 实例id的hex标识，不含有“-”符号
+}
+
+message DescribeTaijiTaskDetailResponse {
+  string id = 1 [json_name = "id"];
+  string jsonrpc = 2 [json_name = "jsonrpc"];
+  DescribeTaijiTaskDetailResponseResult result = 3 [json_name = "result"];
+}
+
+message DescribeTaijiTaskDetailResponseResult {
+  int32 code = 1 [json_name = "code"];  // 状态码，正常返回为 0，出现异常则为负数
+  string message = 2 [json_name = "message"];
+  DescribeTaijiTaskDetailResponseData data = 3 [json_name = "data"];
+}
+
+message DescribeTaijiTaskDetailResponseData {
+  DescribeTaijiTaskDetailResponseDataCommon common = 1 [json_name = "common"];
+}
+
+message DescribeTaijiTaskDetailResponseDataCommon {
+  bool is_succeed = 1 [json_name = "is_succeed"];      // 任务是否成功结束
+  string state = 2 [json_name = "state"];  // 实例当前状态
+  string msg = 3 [json_name = "msg"];  // 实例运行信息
+  int32 code = 4 [json_name = "code"];  // 实例的错误码
+}
